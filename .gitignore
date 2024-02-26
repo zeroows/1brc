@@ -1,5 +1,6 @@
-measurement_data*.txt
+measurements_*.txt
 benchmark*.json
 target/
 Cargo.lock
 perf.data*
+*.svg

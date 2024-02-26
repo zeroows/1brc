@@ -1,4 +1,4 @@
-#![feature(slice_split_once)]
+// #![feature(slice_split_once)]
 
 use std::{
     cmp::{max, min},
@@ -15,7 +15,7 @@ use fxhash::FxHashMap;
 use memmap2::Mmap;
 use mimalloc::MiMalloc;
 use rayon::{
-    iter::{IntoParallelRefIterator, ParallelIterator, FromParallelIterator},
+    iter::{FromParallelIterator, IntoParallelRefIterator, ParallelIterator},
     slice::{ParallelSlice, ParallelSliceMut},
 };
 
@@ -77,9 +77,15 @@ fn fast_parse(input: &[u8]) -> Value {
     let neg = input[0] == b'-';
     let len = input.len();
 
+    // dbg!(input, neg, len);
+
     let (d1, d2, d3) = match (neg, len) {
+        (false, 1) => (0, 0, input[0] - b'0'),
+        (false, 2) => (0, input[0] - b'0', input[1] - b'0'),
         (false, 3) => (0, input[0] - b'0', input[2] - b'0'),
         (false, 4) => (input[0] - b'0', input[1] - b'0', input[3] - b'0'),
+        (true, 2) => (0, 0, input[1] - b'0'),
+        (true, 3) => (0, input[1] - b'0', input[2] - b'0'),
         (true, 4) => (0, input[1] - b'0', input[3] - b'0'),
         (true, 5) => (input[1] - b'0', input[2] - b'0', input[4] - b'0'),
         _ => unreachable!(),
@@ -93,7 +99,7 @@ fn fast_parse(input: &[u8]) -> Value {
 
 #[inline(always)]
 /// experimental and cost more than fast_parse (hashing+lookup cost > than trick above)
-fn lookup_temp(input: &[u8]) -> Value {
+fn _lookup_temp(input: &[u8]) -> Value {
     //get values from hashmap instead of parsing them.
     //println!("getting value {:?}", std::str::from_utf8(input));
     let key = Cow::Borrowed(input);
@@ -121,7 +127,7 @@ lazy_static! {
         }
         hashmap
     };
-} 
+}
 
 fn main() {
     // Simple mega parallel rayon solution
@@ -138,9 +144,11 @@ fn main() {
     let raw_data = raw_data.strip_suffix(b"\n").unwrap_or(raw_data);
 
     let data = raw_data
+        // .split(|&b| b == b'\n')
         .par_split(|&b| b == b'\n')
         .map(|row| {
-            let (city, sample) = row.split_once(|&b| b == b';').expect("no ; separator");
+            let row = row.split(|&b| b == b';').collect::<Vec<_>>();
+            let (city, sample) = (row[0], row[1]);
             let sample: Value = fast_parse(sample);
             (city, sample)
         })
@@ -172,7 +180,7 @@ fn main() {
 
     // Use Rayon to parallelize the sorting in chunks.
     // TODO : adjust the Chunk size depending on the target.
-    let chunk_size: usize = 1_000_000_000/ num_cpus::get() ;
+    let chunk_size: usize = 1_000_000_000 / num_cpus::get();
     sorted_data.par_chunks_mut(chunk_size).for_each(|chunk| {
         chunk.par_sort_unstable_by_key(|&(city, _)| city);
     });

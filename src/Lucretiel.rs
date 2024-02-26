@@ -1,4 +1,4 @@
-#![feature(slice_split_once)]
+// #![feature(slice_split_once)]
 
 use std::{
     cmp::{max, min},
@@ -22,7 +22,6 @@ type Value = I48F16;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Record {
     min: Value,
@@ -73,8 +72,12 @@ fn fast_parse(input: &[u8]) -> Value {
     let len = input.len();
 
     let (d1, d2, d3) = match (neg, len) {
+        (false, 1) => (0, 0, input[0] - b'0'),
+        (false, 2) => (0, input[0] - b'0', input[1] - b'0'),
         (false, 3) => (0, input[0] - b'0', input[2] - b'0'),
         (false, 4) => (input[0] - b'0', input[1] - b'0', input[3] - b'0'),
+        (true, 2) => (0, 0, input[1] - b'0'),
+        (true, 3) => (0, input[1] - b'0', input[2] - b'0'),
         (true, 4) => (0, input[1] - b'0', input[3] - b'0'),
         (true, 5) => (input[1] - b'0', input[2] - b'0', input[4] - b'0'),
         _ => unreachable!(),
@@ -109,7 +112,8 @@ fn main() {
     let data = raw_data
         .par_split(|&b| b == b'\n')
         .map(|row| {
-            let (city, sample) = row.split_once(|&b| b == b';').expect("no ; separator");
+            let row = row.split(|&b| b == b';').collect::<Vec<_>>();
+            let (city, sample) = (row[0], row[1]);
             let sample: Value = fast_parse(sample);
             (city, sample)
         })
